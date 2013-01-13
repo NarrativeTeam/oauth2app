@@ -1,7 +1,11 @@
 #-*- coding: utf-8 -*-
 
-from simplejson import loads
-from django.contrib.auth.models import User
+try: import simplejson as json
+except ImportError: import json
+try:
+    from django.contrib.auth import get_user_model  # Django 1.5+
+except:
+    from django.contrib.auth.models import User
 from oauth2app.models import Client
 from django.test.client import Client as DjangoTestClient
 from django.utils import unittest
@@ -20,32 +24,32 @@ REDIRECT_URI = "http://example.com/callback"
 
 
 class BaseTestCase(unittest.TestCase):
-    
+
     user = None
     client_holder = None
     client_application = None
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            USER_USERNAME, 
-            USER_EMAIL, 
+        self.user = (get_user_model() or User).objects.create_user(
+            USER_USERNAME,
+            USER_EMAIL,
             USER_PASSWORD)
         self.user.first_name = USER_FIRSTNAME
         self.user.last_name = USER_LASTNAME
         self.user.save()
-        self.client = User.objects.create_user(CLIENT_USERNAME, CLIENT_EMAIL)
-        self.client_application = Client.objects.create(    
-            name="TestApplication", 
+        self.client = (get_user_model() or User).objects.create_user(CLIENT_USERNAME, CLIENT_EMAIL)
+        self.client_application = Client.objects.create(
+            name="TestApplication",
             user=self.client)
-    
+
     def tearDown(self):
         self.user.delete()
         self.client.delete()
         self.client_application.delete()
-        
+
     def get_token(self):
         user = DjangoTestClient()
-        user.login(username=USER_USERNAME, password=USER_PASSWORD)      
+        user.login(username=USER_USERNAME, password=USER_PASSWORD)
         parameters = {
             "client_id":self.client_application.key,
             "redirect_uri":REDIRECT_URI,
@@ -61,7 +65,7 @@ class BaseTestCase(unittest.TestCase):
             "redirect_uri":REDIRECT_URI}
         basic_auth = b64encode("%s:%s" % (self.client_application.key, self.client_application.secret))
         response = client.get(
-            "/oauth2/token", 
-            parameters, 
+            "/oauth2/token",
+            parameters,
             HTTP_AUTHORIZATION="Basic %s" % basic_auth)
         return loads(response.content)["access_token"]
